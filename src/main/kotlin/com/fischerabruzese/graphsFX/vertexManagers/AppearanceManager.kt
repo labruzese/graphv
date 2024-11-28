@@ -10,6 +10,10 @@ class AppearanceManager(val fxGraph: FXGraph<*>) {
      * The priority of the currently active color (lower number = higher priority)
      */
     private var currentColorPriority = priority(ColorType.DEFAULT)
+    //The colors are stored via priority, where when one color is deactivated it will fall through until it's a colored field is met
+    private val colorStorage = Array<Color?>(ColorType.entries.size) { null }.apply {
+        this[priority(ColorType.DEFAULT)] = Color.BLUE
+    }
 
     enum class ColorType {
         PATH, SELECTED, HOVERED, GREYED, CLUSTERED, DEFAULT
@@ -17,6 +21,17 @@ class AppearanceManager(val fxGraph: FXGraph<*>) {
 
     private fun priority(colorType: ColorType): Int{
         return colorType.ordinal
+    }
+
+    /**
+     * Finds the highest priority color that isn't null.
+     * @return The priority of the current color.
+     */
+    private fun highestActivePriority(): Int {
+        colorStorage.forEachIndexed { index, color ->
+            if (color != null) return index
+        }
+        return priority(ColorType.DEFAULT)
     }
 
     private fun grey(color: Color?, greyFactor: Double = 0.5): Color? {
@@ -42,22 +57,6 @@ class AppearanceManager(val fxGraph: FXGraph<*>) {
             setColor(colorStorage[newGreatestPriority]!!)
             currentColorPriority = newGreatestPriority
         }
-    }
-
-    //The colors are stored via priority, where when one color is deactivated it will fall through until it's a colored field is met
-    private val colorStorage = Array<Color?>(colorPriorityMap.size) { null }.apply {
-        this[colorPriorityMap[ColorType.DEFAULT]!!] = Color.BLUE
-    }
-
-    /**
-     * Equivalent to the highest priority color that isn't null.
-     * @return The priority of the current color.
-     */
-    private fun highestActivePriority(): Int {
-        colorStorage.forEachIndexed { index, color ->
-            if (color != null) return index
-        }
-        return colorPriorityMap[ColorType.DEFAULT]!!
     }
 
     /**
