@@ -662,7 +662,7 @@ class Controller {
     private fun weightSwitched(state: SwitchButton.SwitchButtonState) {
         when (state) {
             SwitchButton.SwitchButtonState.LEFT -> {
-                graphicComponents.hideWeight()
+                graphicComponents.hideWeights()
             }
 
             SwitchButton.SwitchButtonState.RIGHT -> {

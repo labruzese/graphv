@@ -1,4 +1,9 @@
 package com.fischerabruzese.graphsFX.machines
 
-interface IDragMachine {
+import com.fischerabruzese.graphsFX.FXVertex
+
+interface IDragMachine<E> {
+    var selectedFXVertex: FXVertex<E>
+
+
 }

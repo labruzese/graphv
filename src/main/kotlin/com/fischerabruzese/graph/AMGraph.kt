@@ -41,7 +41,7 @@ import kotlin.random.Random
  *
  * @see Graph
  */
-class AMGraph<E : Any> private constructor(
+open class AMGraph<E : Any> private constructor(
     vertices: ArrayList<E>?,
     indexLookup: HashMap<E, Int>?,
     edgeMatrix: Array<IntArray>?
