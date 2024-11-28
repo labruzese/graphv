@@ -30,6 +30,10 @@ class FXVertex<E>(val v: E, xInit: Double, yInit: Double, var radius: Double, va
     //Graphical Display Components
     private val circle = Circle(radius, Color.BLUE)
     private val label = Label(v.toString())
+
+    /**
+     * Captures all inputs
+     */
     val hitbox = Circle(radius, Color.TRANSPARENT)
 
     /*Location Bindings*/

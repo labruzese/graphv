@@ -7,6 +7,7 @@ import javafx.application.Platform
 import java.util.*
 import java.util.concurrent.CountDownLatch
 import com.fischerabruzese.graphsFX.*
+import com.fischerabruzese.graphsFX.vertexManagers.PositionManager
 
 class PhysicsMachine(val positionManager: PositionManager) {
 

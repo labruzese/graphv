@@ -11,7 +11,8 @@ import kotlin.collections.ArrayList
 interface IPhysicsMachine {
     val graph: Graph<FXVertex<*>>
     val positionManager: PositionManager
-    var simulationThreads: ThreadGroup
+    var ghostSimulation: ArrayList<Pair<*,Position>>
+    var physicsThreads: ThreadGroup
 
     /**
      * @param speed the speed (ie magnitude) of the calculations
@@ -23,7 +24,7 @@ interface IPhysicsMachine {
         speed: Double,
         unaffected: List<FXVertex<*>> = emptyList(),
         uneffectors: List<FXVertex<*>> = emptyList(),
-        verticesPos: List<Pair<FXVertex<*>, Position>> = graph.map { fxVert -> fxVert to fxVert.pos }
+        alternateVertexPositions: List<Pair<*, Position>> = graph.map { fxVert -> fxVert to fxVert.pos }
     ): Array<Displacement>
 
     /**
@@ -33,14 +34,13 @@ interface IPhysicsMachine {
                  unaffected: List<FXVertex<*>>,
                  uneffectors: List<FXVertex<*>>) {
 
-        val ghostVertices = ArrayList(graph.map { it to it.pos })
+        ghostSimulation = ArrayList(graph.map { it to it.pos })
 
-        Thread(simulationThreads) {
-            simulation(speed, unaffected, uneffectors, ghostVertices)
+        Thread(physicsThreads) {
+            simulation(speed, unaffected, uneffectors, ghostSimulation)
         }.start()
 
-
-        Thread(simulationThreads) {
+        Thread(physicsThreads) {
             platformCommunication()
             return@Thread
         }.start()
@@ -50,7 +50,7 @@ interface IPhysicsMachine {
         speed: Double,
         unaffected: List<FXVertex<*>>,
         uneffectors: List<FXVertex<*>>,
-        ghostVertices: java.util.ArrayList<Pair<FXVertex<*>, Position>>
+        ghostVertices: java.util.ArrayList<Pair<*, Position>>
     ) {
         while (!Thread.interrupted()) {
             try {
@@ -58,7 +58,7 @@ interface IPhysicsMachine {
                     speed,
                     unaffected = unaffected,
                     uneffectors = uneffectors,
-                    verticesPos = ghostVertices.toList()
+                    alternateVertexPositions = ghostVertices.toList()
                 )
                 pushGhostFrame(displacements)
             }
@@ -122,17 +122,19 @@ interface IPhysicsMachine {
         if (isStopped()) return
 
         Stop()
-        for (t in simulationThreads) {
+        val threadList = Array<Thread?>(2) { null }.apply { physicsThreads.enumerate(this) } as Array<Thread>
+
+        for (t in threadList) {
             t.interrupt()
             t.join() //wait for each thread to die
         }
 
-        ghostVertices = java.util.ArrayList()
-        simulationThreads = LinkedList<Thread>()
+        ghostSimulation = ArrayList()
+        physicsThreads = ThreadGroup("Physics Threads")
     }
 
     fun isActive(): Boolean {
-        return simulationThreads.isNotEmpty()
+        return physicsThreads.isNotEmpty()
     }
 
     /**
