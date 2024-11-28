@@ -1,5 +1,6 @@
 package com.fischerabruzese.graphsFX.graphMachines
 
+import com.fischerabruzese.graph.Graph
 import com.fischerabruzese.graphsFX.Displacement
 import com.fischerabruzese.graphsFX.GraphicComponents
 import com.fischerabruzese.graphsFX.Position
@@ -8,177 +9,121 @@ import java.util.*
 import java.util.concurrent.CountDownLatch
 import com.fischerabruzese.graphsFX.*
 import com.fischerabruzese.graphsFX.vertexManagers.PositionManager
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.pow
+import kotlin.math.sin
+import kotlin.random.Random
 
-class PhysicsMachine(val positionManager: PositionManager) {
+class PhysicsMachine(override val positionManager: PositionManager,
+                     override var uneffectors: List<FXVertex<*>>,
+                     override var unaffected: List<FXVertex<*>>,
+                     override var speed: Double,
+                     override val graph: Graph<FXVertex<*>>
+) : IPhysicsMachine {
+    override var physicsThreads = ThreadGroup("Physics Threads")
+    override var simulationVertexPositions: MutableMap<FXVertex<*>, Position> = mutableMapOf()
+    override var stopped = false
 
-    /**
-     * @param speed the speed (ie magnitude) of the calculations
-     * @param unaffected all the vertices that aren't moved
-     * @param uneffectors all the vertices that do not cause movements
-     * @returns An array of displacements such that the displacement at each index correspondents with [vertices]
-     */
-    fun generateFrame(
-        speed: Double,
-        unaffected: List<FXVertex<E>> = emptyList(),
-        uneffectors: List<FXVertex<E>> = emptyList(),
-        verticesPos: List<Pair<FXVertex<E>, Position>> = graph.vertices.map { it to it.pos }
-    ): Array<Displacement>
+    override fun generateFrame(alternateVertexPositions: Map<FXVertex<*>, Position>): Map<FXVertex<*>, Displacement> {
+        val max = 1500
+        val scaleFactor = speed.pow(4) * max
 
+        val displacements: MutableMap<FXVertex<*>, Displacement> = graph.associateWith { Displacement(0.0,0.0) }.toMutableMap()
+        for ((affectedVertex, affectedPos) in simulationVertexPositions) {
+            if (unaffected.contains(affectedVertex)) continue
+            val effectors = LinkedList<Pair<Position, (Double) -> Double>>()
 
+            val vertexRepulsionField: (Double) -> Double = { rSqr -> (scaleFactor / rSqr) }
+            val vertexAttractionField: (Double) -> Double = { rSqr -> (-scaleFactor * rSqr.pow(2)) }
 
-    /**
-     * Opens a thread that will generate and push frames to the gui at [speed] until [stopSimulation]
-     */
-    fun simulate(speed: Double,
-                 unaffected: List<FXVertex<E>>,
-                 uneffectors: List<FXVertex<E>>) {
+            val unconnectedVertexField: (Double) -> Double = { rSqr -> 1 * vertexRepulsionField(rSqr)}
+            val singleConnectedVertexField: (Double) -> Double = { rSqr -> 1000 * vertexAttractionField(rSqr) + 0.5 * vertexRepulsionField(rSqr)}
+            val doubleConnectedVertexField: (Double) -> Double = { rSqr -> 2000 * vertexAttractionField(rSqr) + 0.5 * vertexRepulsionField(rSqr)}
+            val edgeFieldEquation: (Double) -> Double = { rSqr ->  0.5 * vertexRepulsionField(rSqr) }
+            val wallFieldEquation: (Double) -> Double = { rSqr ->  0.5 * vertexRepulsionField(rSqr) }
 
-        val ghostVertices = ArrayList(graph.vertices.map { it to it.pos })
+            //vertices
+            val (effectorVerts, effectorPos) = simulationVertexPositions
+                .filterNot { (uneffectors.contains(it.key) || affectedVertex === it.key) }
+                .toList()
+                .unzip()
 
-        Thread(simulationThreads) {
-            simulation(speed, unaffected, uneffectors, ghostVertices)
-        }.start()
-
-
-        Thread(simulationThreads) {
-            platformCommunication()
-            return@Thread
-        }.start()
-    }
-
-    private fun simulation(
-        speed: Double,
-        unaffected: List<FXVertex<E>>,
-        uneffectors: List<FXVertex<E>>,
-        ghostVertices: ArrayList<Pair<FXVertex<E>, Position>>
-    ) {
-        while (!Thread.interrupted()) {
-            try {
-                val displacements = generateFrame(
-                    speed,
-                    unaffected = unaffected,
-                    uneffectors = uneffectors,
-                    verticesPos = ghostVertices.toList()
-                )
-                pushGhostFrame(displacements)
-            }
-            //Graph has changed or physics stopped, restart simulation
-            catch (ex: Exception) {
-                when (ex) {
-                    is NoSuchElementException, is IndexOutOfBoundsException -> {
-                        if (!isStopped()) {
-                            Platform.runLater {
-                                stopSimulation()
-                                startSimulation()
-                            }
-                        }
-                        return
-                    }
-
-                    else -> throw ex
-                }
-            }
-            //Thread.sleep(1)
-        }
-    }
-
-    fun platformCommunication() {
-        while (!Thread.interrupted()) {
-            val latch = CountDownLatch(1) // Initialize with a count of 1
-            Platform.runLater {
-                try {
-                    pushRealFrame()
-                }
-                //Graph has changed or physics stopped, restart simulation
-                catch (ex: Exception) {
-                    when (ex) {
-                        is NoSuchElementException, is IndexOutOfBoundsException -> {
-                            if (!isStopped()) { //if unexpected crash
-                                stopSimulation()
-                                startSimulation()
-                            }
-                            return@runLater //Don't count down latch and cause a InterruptedException in thread
-                        }
-
-                        else -> throw ex
+            effectorVerts
+                .mapIndexedTo(effectors) { i, vertexEffector ->
+                    when (graph.countEdgesBetween(vertexEffector, affectedVertex)) {
+                        1 -> Pair(effectorPos[i], singleConnectedVertexField)
+                        2 -> Pair(effectorPos[i], doubleConnectedVertexField)
+                        else -> Pair(effectorPos[i], unconnectedVertexField)
                     }
                 }
-                latch.countDown() //signal that Platform has executed our frame
-            }
-            try {
-                latch.await()
-            } catch (e: InterruptedException) {
-                return
-            } //wait for platform to execute our frame
-        }
-    }
 
+            /*
+            edges.zip(edges.dumpPositions())
+                .filterNot { (e, _) -> e.v1 == affectedVertex || e.v2 == affectedVertex } //should I add another filter for effector stuff
+                .mapTo(effectors) { (_, effectorPos) -> Pair(effectorPos, edgeFieldEquation) }
+             */
 
+            //walls
+            listOf(
+                Position(1.0, affectedPos.y),
+                Position(0.0, affectedPos.y),
+                Position(affectedPos.x, 1.0),
+                Position(affectedPos.x, 0.0)
+            )
+                .mapTo(effectors) { wallEffectorPos -> Pair(wallEffectorPos, wallFieldEquation) }
 
-    fun isStopped(): Boolean
-    fun Stop()
-
-    var simulationThreads: ThreadGroup
-
-    fun stopSimulation() {
-        if (isStopped()) return
-
-        Stop()
-        for (t in simulationThreads) {
-            t.interrupt()
-            t.join() //wait for each thread to die
+            displacements[affectedVertex] = calculateAdjustmentAtPos(affectedPos, effectors)
         }
 
-        ghostVertices = ArrayList()
-        simulationThreads = LinkedList<Thread>()
+        return displacements
     }
 
-    fun isActive(): Boolean {
-        return simulationThreads.isNotEmpty()
-    }
+    private fun calculateAdjustmentAtPos(
+        at: Position,
+        froms: List<Pair<Position, (Double) -> Double>>,
+        forceCapPerPos: Double = 0.1
+    ): Displacement {
+        val displacement = Displacement(0.0, 0.0)
 
-    /**
-     * Starts the simulation if it is inactive
-     * @return true if the simulation was inactive and has been started. False if the simulation was already active
-     */
-    fun startSimulation(): Boolean {
-        if (isActive()) return false
-        stopping = false
-
-        simulate()
-        return true
-    }
-
-
-
-
-    /** Updates every vertex with the calculated displacements */
-    private fun pushRealFrame() {
-        for (vertexIndex in ver    abstract fun generateFrame(
-        speed: Double,
-        unaffected: List<GraphicComponents<E>.Vertex> = emptyList(),
-        uneffectors: List<GraphicComponents<E>.Vertex> = emptyList(),
-        verticesPos: List<Pair<GraphicComponents<E>.Vertex, Position>> = vertices.map { it to it.pos }
-    ): Array<Displacement>tices.indices) {
-            if (!vertices[vertexIndex].draggingFlag) {
-                vertices[vertexIndex].pos = ghostVertices[vertexIndex].second
-            }
+        //Adding adjustments
+        for ((pos, fieldEq) in froms) {
+            val scaleFactor = 0.00006 / (graph.size() + graph.getEdges().size)
+            if (at == pos) return Displacement(
+                Random.nextDouble(-0.000001, 0.000001),
+                Random.nextDouble(-0.000001, 0.000001)
+            ) //Nudge slightly if at the same position
+            displacement += calculateAdjustmentAtPos(at, pos, scaleFactor, fieldEq)
         }
-        ghostVertices = ArrayList(vertices.map { it to it.pos }) //reset ghost vertices
+
+        //Capping the total force, add some variation
+        displacement.constrainBetween(
+            forceCapPerPos, //+ Random.nextDouble(-forceCapPerPos/10, forceCapPerPos/10),
+            -forceCapPerPos //+ Random.nextDouble(-forceCapPerPos/10, forceCapPerPos/10)
+        )
+        return displacement
     }
 
-    private fun pushGhostFrame(displacementArr: Array<Displacement>) {
-        for ((vertexIndex, displacement) in displacementArr.withIndex()) {
-            if (!ghostVertices[vertexIndex].first.draggingFlag) {
-                ghostVertices[vertexIndex] =
-                    ghostVertices[vertexIndex].let { it.first to it.second.plus(displacement) }
-                ghostVertices[vertexIndex] = ghostVertices[vertexIndex].let {
-                    it.first to Position( //recreating position will constrain position data, but tbh position class should be rewritten anyway its kinda trash
-                        it.second.x,
-                        it.second.y
-                    )
-                }
-            }
-        }
+    private fun calculateAdjustmentAtPos(
+        at: Position,
+        from: Position,
+        scaleFactor: Double,
+        magnitudeFormula: (radiusSquared: Double) -> Double = { 1 / it }
+    ): Displacement {
+        //Window scalers
+        val xScaler = 2 * pane.width / (pane.width + pane.height)
+        val yScaler = 2 * pane.height / (pane.width + pane.height)
+
+        val dx = (at.x - from.x) * xScaler
+        val dy = (at.y - from.y) * yScaler
+        val radiusSquared = dx.pow(2) + dy.pow(2)
+
+        val magnitude = scaleFactor * magnitudeFormula(radiusSquared)
+        val angle = atan2(dy, dx)
+
+        val fdx = magnitude * cos(angle)
+        val fdy = magnitude * sin(angle)
+
+        return Displacement(fdx, fdy, 0.9, -0.9)
     }
 }

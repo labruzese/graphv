@@ -17,12 +17,12 @@ class FXVertex<E>(val v: E, xInit: Double, yInit: Double, var radius: Double, va
     internal var x: DoubleProperty = SimpleDoubleProperty(xInit)
     internal var y: DoubleProperty = SimpleDoubleProperty(yInit)
 
-    var lockPosition: Boolean = false
+    var positionLock: Boolean = false
     //The current position of the vertex
     internal var pos
         get() = Position(x.get(), y.get())
         set(value) {
-            if(lockPosition) return
+            if(positionLock) return
             x.set(value.x)
             y.set(value.y)
         }

@@ -11,8 +11,15 @@ import kotlin.collections.ArrayList
 interface IPhysicsMachine {
     val graph: Graph<FXVertex<*>>
     val positionManager: PositionManager
-    var ghostSimulation: ArrayList<Pair<*,Position>>
+
+    var speed: Double
+    var unaffected: List<FXVertex<*>>
+    var uneffectors: List<FXVertex<*>>
+
+    var simulationVertexPositions: MutableMap<FXVertex<*>,Position>
+
     var physicsThreads: ThreadGroup
+    var stopped: Boolean
 
     /**
      * @param speed the speed (ie magnitude) of the calculations
@@ -21,23 +28,17 @@ interface IPhysicsMachine {
      * @returns An array of displacements such that the displacement at each index correspondents with [vertices]
      */
     fun generateFrame(
-        speed: Double,
-        unaffected: List<FXVertex<*>> = emptyList(),
-        uneffectors: List<FXVertex<*>> = emptyList(),
-        alternateVertexPositions: List<Pair<*, Position>> = graph.map { fxVert -> fxVert to fxVert.pos }
-    ): Array<Displacement>
+        alternateVertexPositions: Map<FXVertex<*>, Position> = graph.associateWith { fxVert -> fxVert.pos }
+    ): Map<FXVertex<*>, Displacement>
 
     /**
      * Opens a thread that will generate and push frames to the gui at [speed] until [stopSimulation]
      */
-    fun simulate(speed: Double,
-                 unaffected: List<FXVertex<*>>,
-                 uneffectors: List<FXVertex<*>>) {
-
-        ghostSimulation = ArrayList(graph.map { it to it.pos })
+    fun newSimulation() {
+        simulationVertexPositions = graph.associateWith { fxVert -> fxVert.pos }.toMutableMap()
 
         Thread(physicsThreads) {
-            simulation(speed, unaffected, uneffectors, ghostSimulation)
+            simulationUsing(simulationVertexPositions)
         }.start()
 
         Thread(physicsThreads) {
@@ -46,20 +47,12 @@ interface IPhysicsMachine {
         }.start()
     }
 
-    private fun simulation(
-        speed: Double,
-        unaffected: List<FXVertex<*>>,
-        uneffectors: List<FXVertex<*>>,
-        ghostVertices: java.util.ArrayList<Pair<*, Position>>
+    private fun simulationUsing(
+        vertexPositions: Map<FXVertex<*>, Position>
     ) {
         while (!Thread.interrupted()) {
             try {
-                val displacements = generateFrame(
-                    speed,
-                    unaffected = unaffected,
-                    uneffectors = uneffectors,
-                    alternateVertexPositions = ghostVertices.toList()
-                )
+                val displacements = generateFrame(vertexPositions)
                 pushGhostFrame(displacements)
             }
             //Graph has changed or physics stopped, restart simulation
@@ -115,13 +108,12 @@ interface IPhysicsMachine {
 
 
 
-    fun isStopped(): Boolean
-    fun Stop()
+    fun isStopped(): Boolean = stopped
 
     fun stopSimulation() {
         if (isStopped()) return
+        stopped = true
 
-        Stop()
         val threadList = Array<Thread?>(2) { null }.apply { physicsThreads.enumerate(this) } as Array<Thread>
 
         for (t in threadList) {
@@ -129,12 +121,12 @@ interface IPhysicsMachine {
             t.join() //wait for each thread to die
         }
 
-        ghostSimulation = ArrayList()
+        simulationVertexPositions = mutableMapOf()
         physicsThreads = ThreadGroup("Physics Threads")
     }
 
     fun isActive(): Boolean {
-        return physicsThreads.isNotEmpty()
+        return Array<Thread?>(2) { null }.run { physicsThreads.enumerate(this) } > 0
     }
 
     /**
@@ -143,42 +135,24 @@ interface IPhysicsMachine {
      */
     fun startSimulation(): Boolean {
         if (isActive()) return false
-        stopping = false
-
-        simulate()
+        stopped = false
+        newSimulation()
         return true
     }
 
-
-
-
-    /** Updates every vertex with the calculated displacements */
     private fun pushRealFrame() {
-        for (vertexIndex in ver    abstract fun generateFrame(
-            speed: Double,
-            unaffected: List<GraphicComponents<E>.Vertex> = emptyList(),
-            uneffectors: List<GraphicComponents<E>.Vertex> = emptyList(),
-            verticesPos: List<Pair<GraphicComponents<E>.Vertex, Position>> = vertices.map { it to it.pos }
-        ): Array<Displacement>tices.indices) {
-            if (!vertices[vertexIndex].draggingFlag) {
-                vertices[vertexIndex].pos = ghostVertices[vertexIndex].second
+        for (vertex in graph) {
+            if (!vertex.positionLock) {
+                vertex.pos = simulationVertexPositions[vertex] ?: vertex.pos
             }
         }
-        ghostVertices = ArrayList(vertices.map { it to it.pos }) //reset ghost vertices
+        simulationVertexPositions = graph.associateWith { fxVert -> fxVert.pos }.toMutableMap() //reset ghost vertices
     }
 
-    private fun pushGhostFrame(displacementArr: Array<Displacement>) {
-        for ((vertexIndex, displacement) in displacementArr.withIndex()) {
-            if (!ghostVertices[vertexIndex].first.draggingFlag) {
-                ghostVertices[vertexIndex] =
-                    ghostVertices[vertexIndex].let { it.first to it.second.plus(displacement) }
-                ghostVertices[vertexIndex] = ghostVertices[vertexIndex].let {
-                    it.first to Position( //recreating position will constrain position data, but tbh position class should be rewritten anyway its kinda trash
-                        it.second.x,
-                        it.second.y
-                    )
-                }
-            }
+    private fun pushGhostFrame(displacementArr: Map<FXVertex<*>, Displacement>) {
+        for ((vertex, displacement) in displacementArr) {
+            if (vertex.positionLock) continue
+            simulationVertexPositions[vertex]?.let { simulationVertexPositions[vertex] = it + displacement }
         }
     }
 }
