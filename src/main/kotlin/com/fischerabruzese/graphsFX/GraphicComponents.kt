@@ -1,13 +1,11 @@
 package com.fischerabruzese.graphsFX
 
 import com.fischerabruzese.graph.Graph
-import com.fischerabruzese.graphsFX.machines.*
-import javafx.application.Platform
+import com.fischerabruzese.graphsFX.graphMachines.*
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.Pane
 import javafx.scene.paint.Color
 import java.util.*
-import java.util.concurrent.CountDownLatch
 import kotlin.math.*
 import kotlin.random.Random
 
@@ -188,11 +186,10 @@ class GraphicComponents<E : Any>(
     }
 
     //Vertex + edge storage
-    private val clusterMachine: IClusterMachine = TODO()
-    private val colorMachine: IColorMachine = TODO()
-    private val dragMachine: IDragMachine<E> = TODO()
-    private val pathMachine: IPathMachine<E> = TODO()
-    private val physicsMachine: IPhysicsMachine<E> = TODO()
+    private val clusterMachine: ClusterMachine = TODO()
+    private val dragMachine: MouseMachine<E> = TODO()
+    private val pathMachine: PathMachine<E> = TODO()
+    private val physicsMachine: PhysicsMachine<E> = TODO()
 
     private var fxGraph: FXGraph<E> = TODO()
     private var graph: Graph<E> = initialGraph.also { syncFXGraphTo(initialGraph) }

@@ -22,7 +22,7 @@ class FXVertex<E>(val v: E, xInit: Double, yInit: Double, var radius: Double, va
     internal var pos
         get() = Position(x.get(), y.get())
         set(value) {
-            if(lockPosition) throw IllegalAccessException("Position is locked, unlock position before modifying")
+            if(lockPosition) return
             x.set(value.x)
             y.set(value.y)
         }
@@ -86,6 +86,8 @@ class FXVertex<E>(val v: E, xInit: Double, yInit: Double, var radius: Double, va
         bindProperties()
         //Start a family
         children.addAll(circle, label, hitbox)
+
+        hitbox.pickOnBoundsProperty().set(true)
     }
 
     override fun toString(): String {

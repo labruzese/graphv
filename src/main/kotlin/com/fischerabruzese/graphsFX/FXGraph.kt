@@ -2,82 +2,96 @@ package com.fischerabruzese.graphsFX
 
 import com.fischerabruzese.graph.AMGraph
 import com.fischerabruzese.graph.Graph
+import com.fischerabruzese.graphsFX.graphMachines.*
+import com.fischerabruzese.graphsFX.vertexManagers.*
+import javafx.scene.layout.Pane
 import javafx.scene.paint.Color
 import java.util.*
-import kotlin.collections.LinkedHashMap
+import kotlin.collections.HashMap
 import kotlin.random.Random
 
-class FXGraph<E : Any>(initial: Graph<E> = AMGraph()) {
-    val graph = object : AMGraph<E>() {
-        init {
-            becomeCloneOf(initial)
-        }
+//type of node is V
+//mutable
+class FXGraph<V : Any>(initial: Graph<V> = AMGraph(), val pane: Pane) {
+    val graph: Graph<FXVertex<V>> = AMGraph()
+    var fxConnections = HashMap<Pair<FXVertex<V>, FXVertex<V>>, FXConnection<V>>()
+    val vertex = HashMap<String, FXVertex<V>>()
 
-        private val itemHashtable = LinkedHashMap<Pair<E,E>, FXConnection<E>>()
+    private var clusterMachine: ClusterMachine = ClusterMachine(appearanceManager)
+    private var mouseMachine: MouseMachine = MouseMachine(appearanceManager, positionManager)
+    private var pathMachine: PathMachine = PathMachine(appearanceManager)
+    private var physicsMachine: PhysicsMachine = PhysicsMachine(positionManager)
 
-        fun getConnectionItem(edge: Pair<E, E>) : FXConnection<E>? { return itemHashtable[edge] }
-        fun getConnectionItem(from: E, to: E) : FXConnection<E>? { return itemHashtable[from to to] }
-    }
+    private var appearanceManager: AppearanceManager = AppearanceManager(this)
+    private var positionManager: PositionManager = PositionManager(this)
 
     companion object {
         const val DEFAULT_RADIUS = 20.0
     }
 
     init {
-        for (vertex in initialGraph) {
-            addVertex(vertex, DEFAULT_RADIUS, Random.nextDouble(), Random.nextDouble())
+        //Init vertices
+        val vertexToFXVertex = HashMap<V, FXVertex<V>>()
+        for(v: V in initial.getVertices()){
+            vertexToFXVertex[v] = addVertex(v)
         }
 
-        for ((from, to) in initialGraph.getEdges()) {
-            addConnection(vertices[from]!!, vertices[to]!!, initialGraph[from, to]!!)
+        //Init edges
+        for((from, to) in initial.getEdges()){
+            val fxFrom = vertexToFXVertex[from]!!
+            val fxTo = vertexToFXVertex[to]!!
+
+            addConnection(fxFrom, fxTo, initial[from,to]!!)
         }
     }
 
-    val vertices: MutableMap<E, FXVertex<E>> = mutableMapOf()
-    val edges: MutableList<FXEdge<E>> = mutableListOf()
+    private fun addVertex(element: V,
+                          radius: Double = DEFAULT_RADIUS,
+                          xPos: Double = Random.nextDouble(),
+                          yPos: Double = Random.nextDouble()
+    ): FXVertex<V> {
+        val vert = FXVertex(element, xPos, yPos, radius, pane)
+        graph.add(vert)
+        pane.children.add(vert)
+        vertex[vert.toString()] = vert
 
-    fun clear() {
-        vertices.clear()
-    }
-
-
-    private fun addVertex(element: E, radius: Double, xPos: Double, yPos: Double) {
-        //Add bindings to vertex
-        //Add to FXGraph
-        //add vertex to pane
-    }
-
-    private fun addConnection(from: FXVertex<E>, to: FXVertex<E>, weight: Int) {
-        val reversedEdge = findReverseEdge(from to to)
-
-        val newEdge =
-            if(reversedEdge != null) {
-                FXEdge(reversedEdge.v1tov2Connection!!, FXConnection(to, from, weight, !reversedEdge.v1tov2Connection.mirrored))
-            } else {
-                FXEdge(from, to, weight, null)
-            }
-
-        if(reversedEdge != null) edges.remove(reversedEdge)
-
-        edges.add(newEdge)
-    }
-
-
-    fun findReverseEdge(connection: Pair<FXVertex<E>, FXVertex<E>>): FXEdge<E>? {
-        return edges.find {
-            it.v2 == connection.first && it.v1 == connection.second
+        //Do bindings
+        val hitbox = vert.hitbox
+        hitbox.setOnMouseEntered {
+            mouseMachine.mouseEntered(vert)
         }
+        hitbox.setOnMouseExited {
+            mouseMachine.mouseExited(vert)
+        }
+
+        hitbox.setOnMousePressed {
+            mouseMachine.mousePressed(vert)
+            pathMachine.mousePressed(vert)
+        }
+
+        hitbox.setOnMouseDragged(mouseMachine::mouseDragged)
+
+        hitbox.setOnMouseReleased {
+            mouseMachine.mouseReleased()
+            pathMachine.mouseReleased()
+        }
+        return vert
+    }
+
+    private fun addConnection(from: FXVertex<V>, to: FXVertex<V>, weight: Int) {
+        fxConnections[from to to] = FXConnection(from, to, weight, !(fxConnections[to to from]?.mirrored ?: true))
+        graph[from, to] = weight
     }
 
     fun hideWeights() {
-        for (edge in edges) {
-            edge.hideLabels()
+        for (connection in fxConnections.values) {
+            connection.hideLabel()
         }
     }
 
     fun showWeights() {
-        for (edge in edges) {
-            edge.showLabels()
+        for (connection in fxConnections.values) {
+            connection.showLabel()
         }
     }
 
@@ -92,7 +106,7 @@ class FXGraph<E : Any>(initial: Graph<E> = AMGraph()) {
         }
     }
 
-    fun greyDetached(src: GraphicComponents<E>.Vertex) {
+    fun greyDetached(src: GraphicComponents<V>.Vertex) {
         for (vert in vertices.filterNot { it == src }) {
             vert.setColor(ColorType.GREYED)
         }

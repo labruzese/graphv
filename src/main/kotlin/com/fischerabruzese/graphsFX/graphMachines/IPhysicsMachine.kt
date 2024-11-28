@@ -1,15 +1,17 @@
-package com.fischerabruzese.graphsFX.machines
+package com.fischerabruzese.graphsFX.graphMachines
 
-import com.fischerabruzese.graphsFX.Displacement
-import com.fischerabruzese.graphsFX.GraphicComponents
-import com.fischerabruzese.graphsFX.Position
+import com.fischerabruzese.graph.Graph
+import com.fischerabruzese.graphsFX.*
+import com.fischerabruzese.graphsFX.vertexManagers.PositionManager
 import javafx.application.Platform
 import java.util.*
 import java.util.concurrent.CountDownLatch
-import com.fischerabruzese.graphsFX.*
+import kotlin.collections.ArrayList
 
-interface IPhysicsMachine<E> {
-    var graph: FXGraph<E>
+interface IPhysicsMachine {
+    val graph: Graph<FXVertex<*>>
+    val positionManager: PositionManager
+    var simulationThreads: ThreadGroup
 
     /**
      * @param speed the speed (ie magnitude) of the calculations
@@ -19,21 +21,19 @@ interface IPhysicsMachine<E> {
      */
     fun generateFrame(
         speed: Double,
-        unaffected: List<FXVertex<E>> = emptyList(),
-        uneffectors: List<FXVertex<E>> = emptyList(),
-        verticesPos: List<Pair<FXVertex<E>, Position>> = graph.vertices.map { it to it.pos }
+        unaffected: List<FXVertex<*>> = emptyList(),
+        uneffectors: List<FXVertex<*>> = emptyList(),
+        verticesPos: List<Pair<FXVertex<*>, Position>> = graph.map { fxVert -> fxVert to fxVert.pos }
     ): Array<Displacement>
-
-
 
     /**
      * Opens a thread that will generate and push frames to the gui at [speed] until [stopSimulation]
      */
     fun simulate(speed: Double,
-                 unaffected: List<FXVertex<E>>,
-                 uneffectors: List<FXVertex<E>>) {
+                 unaffected: List<FXVertex<*>>,
+                 uneffectors: List<FXVertex<*>>) {
 
-        val ghostVertices = ArrayList(graph.vertices.map { it to it.pos })
+        val ghostVertices = ArrayList(graph.map { it to it.pos })
 
         Thread(simulationThreads) {
             simulation(speed, unaffected, uneffectors, ghostVertices)
@@ -48,9 +48,9 @@ interface IPhysicsMachine<E> {
 
     private fun simulation(
         speed: Double,
-        unaffected: List<FXVertex<E>>,
-        uneffectors: List<FXVertex<E>>,
-        ghostVertices: ArrayList<Pair<FXVertex<E>, Position>>
+        unaffected: List<FXVertex<*>>,
+        uneffectors: List<FXVertex<*>>,
+        ghostVertices: java.util.ArrayList<Pair<FXVertex<*>, Position>>
     ) {
         while (!Thread.interrupted()) {
             try {
@@ -118,8 +118,6 @@ interface IPhysicsMachine<E> {
     fun isStopped(): Boolean
     fun Stop()
 
-    var simulationThreads: ThreadGroup
-
     fun stopSimulation() {
         if (isStopped()) return
 
@@ -129,7 +127,7 @@ interface IPhysicsMachine<E> {
             t.join() //wait for each thread to die
         }
 
-        ghostVertices = ArrayList()
+        ghostVertices = java.util.ArrayList()
         simulationThreads = LinkedList<Thread>()
     }
 
@@ -155,11 +153,11 @@ interface IPhysicsMachine<E> {
     /** Updates every vertex with the calculated displacements */
     private fun pushRealFrame() {
         for (vertexIndex in ver    abstract fun generateFrame(
-        speed: Double,
-        unaffected: List<GraphicComponents<E>.Vertex> = emptyList(),
-        uneffectors: List<GraphicComponents<E>.Vertex> = emptyList(),
-        verticesPos: List<Pair<GraphicComponents<E>.Vertex, Position>> = vertices.map { it to it.pos }
-    ): Array<Displacement>tices.indices) {
+            speed: Double,
+            unaffected: List<GraphicComponents<E>.Vertex> = emptyList(),
+            uneffectors: List<GraphicComponents<E>.Vertex> = emptyList(),
+            verticesPos: List<Pair<GraphicComponents<E>.Vertex, Position>> = vertices.map { it to it.pos }
+        ): Array<Displacement>tices.indices) {
             if (!vertices[vertexIndex].draggingFlag) {
                 vertices[vertexIndex].pos = ghostVertices[vertexIndex].second
             }

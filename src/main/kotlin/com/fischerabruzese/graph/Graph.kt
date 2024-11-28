@@ -39,6 +39,7 @@ abstract class Graph<E : Any> : Iterable<E>, Serializable {
         return getVertices().size
     }
 
+
     /**
      * The edge getter for graphs.
      *
