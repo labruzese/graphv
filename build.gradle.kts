@@ -7,6 +7,10 @@
 plugins {
     `java-library`
     `maven-publish`
+    kotlin("jvm") version "2.2.0"
+    application
+    id("com.github.johnrengelman.shadow") version "8.1.1"
+    id("org.openjfx.javafxplugin") version "0.1.0"
 }
 
 repositories {
@@ -26,15 +30,45 @@ dependencies {
     api(libs.org.jetbrains.kotlin.kotlin.stdlib.jdk8)
     api(libs.com.github.ajalt.clikt.clikt)
     api(libs.com.github.ajalt.clikt.clikt.markdown)
-    testImplementation(libs.org.junit.jupiter.junit.jupiter.api)
-    testImplementation(libs.org.junit.jupiter.junit.jupiter.engine)
-    testImplementation(libs.org.jetbrains.kotlin.kotlin.test)
 }
 
 group = "com.FA"
 version = "1.0-SNAPSHOT"
 description = "Graphs"
-java.sourceCompatibility = JavaVersion.VERSION_21
+java.sourceCompatibility = JavaVersion.VERSION_24
+
+application {
+    mainClass.set("com.fischerabruzese.graphvcli.MainKt")
+}
+
+javafx {
+    version = "24"
+    modules = listOf("javafx.controls", "javafx.fxml")
+}
+
+// Configure the shadow (fat) JAR
+tasks.shadowJar {
+    archiveBaseName.set("graphs-cli")
+    archiveClassifier.set("")
+    archiveVersion.set("")
+
+    // Include JavaFX modules (since you're using JavaFX)
+    mergeServiceFiles()
+
+    manifest {
+        attributes["Main-Class"] = "com.fischerabruzese.graphvcli.MainKt"
+    }
+}
+
+tasks.jar {
+    enabled = false
+    dependsOn(tasks.shadowJar)
+}
+
+// Make sure shadowJar runs when building
+tasks.build {
+    dependsOn(tasks.shadowJar)
+}
 
 publishing {
     publications.create<MavenPublication>("maven") {
@@ -42,10 +76,10 @@ publishing {
     }
 }
 
-tasks.withType<JavaCompile>() {
+tasks.withType<JavaCompile> {
     options.encoding = "UTF-8"
 }
 
-tasks.withType<Javadoc>() {
+tasks.withType<Javadoc> {
     options.encoding = "UTF-8"
 }
