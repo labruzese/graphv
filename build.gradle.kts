@@ -1,6 +1,5 @@
 plugins {
     kotlin("multiplatform") version "2.2.0"
-    id("org.openjfx.javafxplugin") version "0.1.0"
 }
 
 repositories {
@@ -16,7 +15,7 @@ kotlin {
     }
 
     // Native Linux target for CLI application
-    linuxX64("native") {
+    linuxX64 {
         binaries {
             executable {
                 entryPoint = "com.fischerabruzese.graphvcli.main"
@@ -26,63 +25,46 @@ kotlin {
 
     sourceSets {
         // Common code shared between JVM and Native
-        val commonMain by getting {
-            dependencies {
-                // No external dependencies for common code
-            }
-        }
-
-        val commonTest by getting {
-            dependencies {
-                implementation(kotlin("test"))
-            }
-        }
+        val commonMain by getting {}
 
         // JVM-specific code (JavaFX)
         val jvmMain by getting {
             dependencies {
-                // JavaFX dependencies are handled by the JavaFX plugin
-            }
-        }
-
-        val jvmTest by getting {
-            dependencies {
-                implementation(kotlin("test"))
+                implementation("org.openjfx:javafx-controls:24:linux")
+                implementation("org.openjfx:javafx-fxml:24:linux")
+                implementation("org.openjfx:javafx-base:24:linux")
+                implementation("org.openjfx:javafx-graphics:24:linux")
             }
         }
 
         // Native-specific code (CLI with Clikt)
-        val nativeMain by getting {
+        val linuxX64Main by getting {
             dependencies {
                 implementation("com.github.ajalt.clikt:clikt:5.0.3")
-            }
-        }
-
-        val nativeTest by getting {
-            dependencies {
-                implementation(kotlin("test"))
             }
         }
     }
 }
 
-// JavaFX configuration (only applies to JVM)
-javafx {
-    version = "24"
-    modules = listOf("javafx.controls", "javafx.fxml")
-}
-
-// Task to run the JavaFX application
-tasks.register<JavaExec>("runJvmApp") {
-    dependsOn(tasks.named("jvmJar"))
-    classpath = configurations["jvmRuntimeClasspath"] + files(tasks.named("jvmJar"))
-    mainClass.set("com.fischerabruzese.graphsFX.MainKt")
-}
-
-// Configure JVM JAR task
-tasks.named<Jar>("jvmJar") {
-    manifest {
-        attributes["Main-Class"] = "com.fischerabruzese.graphsFX.MainKt"
+afterEvaluate {
+    tasks.named<Jar>("jvmJar") {
+        archiveBaseName.set("fischerabruzese")
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        manifest {
+            attributes["Main-Class"] = "com.fischerabruzese.graphsFX.MainKt"
+        }
+        from(
+            configurations.getByName("jvmRuntimeClasspath").map {
+                if (it.isDirectory) it else zipTree(it)
+            },
+        )
+        from(
+            kotlin
+                .jvm()
+                .compilations
+                .getByName("main")
+                .output.allOutputs,
+        )
     }
 }
 

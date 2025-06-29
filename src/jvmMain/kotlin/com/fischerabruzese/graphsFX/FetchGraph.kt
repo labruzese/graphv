@@ -1,3 +1,4 @@
+package com.fischerabruzese.graphsFX
 
 import com.fischerabruzese.graph.AMGraph
 import com.fischerabruzese.graph.Graph
