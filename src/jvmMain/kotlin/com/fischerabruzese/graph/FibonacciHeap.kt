@@ -8,7 +8,10 @@ package com.fischerabruzese.graph
  * @param priority the priority of the node
  * @param value the value you want to store at that priority
  */
-class Node<P : Comparable<P>, V>(var priority: P, var value: V) {
+class Node<P : Comparable<P>, V>(
+    var priority: P,
+    var value: V,
+) {
     var parent: Node<P, V>? = null
     var child: Node<P, V>? = null
     var prev: Node<P, V>? = null
@@ -48,8 +51,9 @@ class Node<P : Comparable<P>, V>(var priority: P, var value: V) {
  * @param V The type of values stored in the heap, must implement Comparable.
  * @property minNode The root node of the heap.
  */
-class FibonacciHeap<P : Comparable<P>, V>(var minNode: Node<P, V>? = null) {
-
+class FibonacciHeap<P : Comparable<P>, V>(
+    var minNode: Node<P, V>? = null,
+) {
     /**
      * Inserts a new value into the heap and returns the corresponding node.
      *
@@ -57,7 +61,10 @@ class FibonacciHeap<P : Comparable<P>, V>(var minNode: Node<P, V>? = null) {
      * @param value The value to store at that priority
      * @return The node containing the inserted value.
      */
-    fun insert(priority: P, value: V): Node<P, V> {
+    fun insert(
+        priority: P,
+        value: V,
+    ): Node<P, V> {
         val x = Node(priority, value)
         if (this.minNode == null) {
             x.next = x
@@ -91,7 +98,6 @@ class FibonacciHeap<P : Comparable<P>, V>(var minNode: Node<P, V>? = null) {
      * @return The minimum value in the heap.
      */
     fun minimum(): V? = this.minNode?.value
-
 
     /**
      * Extracts and returns the minimum value from the heap.
@@ -174,7 +180,10 @@ class FibonacciHeap<P : Comparable<P>, V>(var minNode: Node<P, V>? = null) {
      * @param newPriority The new priority for the node.
      * @throws IllegalArgumentException if the new value is greater than the existing value.
      */
-    fun decreaseKey(n: Node<P, V>, newPriority: P) {
+    fun decreaseKey(
+        n: Node<P, V>,
+        newPriority: P,
+    ) {
         require(n.priority >= newPriority) {
             "In 'decreaseKey' new value greater than existing value"
         }
@@ -238,3 +247,4 @@ class FibonacciHeap<P : Comparable<P>, V>(var minNode: Node<P, V>? = null) {
         this.minNode?.meld2(c!!)
     }
 }
+

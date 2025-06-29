@@ -6,7 +6,7 @@ import javafx.fxml.FXMLLoader
 import javafx.scene.Scene
 import javafx.stage.Stage
 
-class GraphApp : Application() {
+class Main : Application() {
     val pgraph: Graph<String>? = null
 
     override fun start(stage: Stage) {
@@ -30,4 +30,3 @@ fun launchJfx() {
     val graphApp = GraphApp()
     Application.launch(graphApp::class.java)
 }
-
