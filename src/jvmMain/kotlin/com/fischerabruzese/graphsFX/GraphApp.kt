@@ -15,7 +15,7 @@ class GraphApp : Application() {
         stage.title = "Graph"
         stage.scene = scene
 
-        val graph = FetchGraph.fetchGraph()
+        val graph = fetchGraph("")
 
         controller.initializeGraph(graph, stage)
 
