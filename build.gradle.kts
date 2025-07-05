@@ -1,5 +1,6 @@
 plugins {
     kotlin("multiplatform") version "2.2.0"
+    kotlin("plugin.serialization") version "2.2.0"
 }
 
 repositories {
@@ -41,6 +42,8 @@ kotlin {
         val linuxX64Main by getting {
             dependencies {
                 implementation("com.github.ajalt.clikt:clikt:5.0.3")
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+                implementation("org.jetbrains.kotlin:kotlin-stdlib:2.2.0")
             }
         }
     }

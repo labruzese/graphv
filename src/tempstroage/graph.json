@@ -1,0 +1,25 @@
+{
+    "vertices": [
+        {
+            "id": "0",
+            "attributes": {
+                "data1": "value1"
+            }
+        },
+        {
+            "id": "1",
+            "attributes": {
+                "data2": "value2"
+            }
+        }
+    ],
+    "edges": [
+        {
+            "from": "0",
+            "to": "1",
+            "attributes": {
+                "edgedata1": "value1"
+            }
+        }
+    ]
+}
